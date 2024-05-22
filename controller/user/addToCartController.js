@@ -4,25 +4,25 @@ async function addToCartController(req, res) {
   try {
     const { productId } = req?.body;
     const currentUser = req?.userId;
-    const isProductInCart = await cartModel.findOne({ productId });
-    if (isProductInCart) {
+
+    // Use findOneAndUpdate for atomic update with concurrency control
+    const updatedCart = await cartModel.findOneAndUpdate(
+      { productId, userId: currentUser },
+      { $inc: { quantity: 1 }, $setOnInsert: { quantity: 1 } },
+      { upsert: true, new: true } // Return the updated document
+    );
+
+    if (!updatedCart) {
       return res.json({
-        message: "Already exists in cart",
+        message: "Product not found or error adding to cart",
         error: true,
         success: false,
       });
     }
 
-    const payload = {
-      productId,
-      quantity: 1,
-      userId: currentUser,
-    };
-    const newProductAddedToCart = new cartModel(payload);
-    const productSaved = await newProductAddedToCart.save();
     return res.json({
-      data: productSaved,
-      message: "Product Added in Cart",
+      data: updatedCart,
+      message: "Product Added/Quantity Updated in Cart",
       success: true,
       error: false,
     });
